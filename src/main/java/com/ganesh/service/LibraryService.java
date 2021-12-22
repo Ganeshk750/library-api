@@ -18,8 +18,10 @@ public interface LibraryService {
     void deleteBook(String id);
     Member createMember(MemberCreationDto memberDto);
     Member updateMember(String id,MemberCreationDto memberDto);
-    Author createAutoAuthor(AuthorCreationDto authorDto);
     List<String> lendBook(BookLendDto bookLendDto);
+    Author createAuthor (AuthorCreationDto request);
+    Book updateBook(String bookId, BookCreationDto request);
+    List<Member> readMembers();
 
 
 }

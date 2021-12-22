@@ -33,10 +33,10 @@ public class LibraryServiceImpl implements LibraryService {
     @Override
     public Book readBookById(String id) {
         Optional<Book> book = bookRepository.findById(id);
-        if(book.isPresent()){
+        if (book.isPresent()) {
             return book.get();
         }
-        throw new EntityNotFoundException("Cant find any book under given ID: "+ id);
+        throw new EntityNotFoundException("Cant find any book under given ID");
     }
 
     @Override
@@ -47,84 +47,115 @@ public class LibraryServiceImpl implements LibraryService {
     @Override
     public Book readBook(String isbn) {
         Optional<Book> book = bookRepository.findByIsbn(isbn);
-        if(book.isPresent()){
+        if (book.isPresent()) {
             return book.get();
         }
-        throw new EntityNotFoundException("Cant find any book under given ISBN: "+ isbn);
+        throw new EntityNotFoundException("Cant find any book under given ISBN");
     }
 
     @Override
-    public Book createBook(BookCreationDto bookDto) {
-        Optional<Author> author = authorRepository.findById(bookDto.getAuthorId());
-         if(author.isPresent()){
-             throw new EntityNotFoundException("Author Not Found");
-         }
-         Book book = new Book();
-         BeanUtils.copyProperties(bookDto, book);
-         book.setAuthor(author.get());
-         return bookRepository.save(book);
+    public Book createBook(BookCreationDto book) {
+        Optional<Author> author = authorRepository.findById(book.getAuthorId());
+        if (!author.isPresent()) {
+            throw new EntityNotFoundException("Author Not Found");
+        }
+        Book bookToCreate = new Book();
+        BeanUtils.copyProperties(book, bookToCreate);
+        bookToCreate.setAuthor(author.get());
+        return bookRepository.save(bookToCreate);
     }
 
     @Override
     public void deleteBook(String id) {
-       bookRepository.deleteById(id);
+        bookRepository.deleteById(id);
     }
 
     @Override
-    public Member createMember(MemberCreationDto memberDto) {
+    public Member createMember(MemberCreationDto request) {
         Member member = new Member();
-        BeanUtils.copyProperties(memberDto, member);
+        BeanUtils.copyProperties(request, member);
         member.setMemberStatus(MemberStatus.ACTIVE);
         return memberRepository.save(member);
     }
 
     @Override
-    public Member updateMember(String id, MemberCreationDto memberDto) {
+    public Member updateMember (String id, MemberCreationDto request) {
         Optional<Member> optionalMember = memberRepository.findById(id);
-        if(!optionalMember.isPresent()){
-            throw new EntityNotFoundException("Member not present in the db");
+        if (!optionalMember.isPresent()) {
+            throw new EntityNotFoundException("Member not present in the database");
         }
         Member member = optionalMember.get();
-        member.setLastName(memberDto.getLastName());
-        member.setFirstName(memberDto.getFirstName());
+        member.setLastName(request.getLastName());
+        member.setFirstName(request.getFirstName());
         return memberRepository.save(member);
     }
 
     @Override
-    public Author createAutoAuthor(AuthorCreationDto authorDto) {
+    public Author createAuthor (AuthorCreationDto request) {
         Author author = new Author();
-        BeanUtils.copyProperties(authorDto, author);
+        BeanUtils.copyProperties(request, author);
         return authorRepository.save(author);
     }
 
     @Override
-    public List<String> lendBook(BookLendDto bookLendDto) {
-        Optional<Member> memberForId = memberRepository.findById(bookLendDto.getMemberId());
-         if(!memberForId.isPresent()){
-             throw new EntityNotFoundException("Member not present in the database");
-         }
-         Member member = memberForId.get();
-         if(member.getMemberStatus() != MemberStatus.ACTIVE){
-             throw new RuntimeException("User is not active to proceed a leading.");
-         }
-         List<String> booksApprovedToBurrow = new ArrayList<>();
-         bookLendDto.getBooksIds().forEach(bookId ->{
-             Optional<Book> bookForId = bookRepository.findById(bookId);
-             if(!bookForId.isPresent()){
-                 throw new EntityNotFoundException("Cant find any book under given ID");
-             }
-             Optional<Lend> burrowBook = lendRepository.findByBookAndStatus(bookForId.get(), LendStatus.BURROWED);
-             if(!burrowBook.isPresent()){
-                 booksApprovedToBurrow.add(bookForId.get().getName());
-                 Lend lend = new Lend();
-                 lend.setMember(memberForId.get());
-                 lend.setBook(bookForId.get());
-                 lend.setStatus(LendStatus.BURROWED);
-                 lend.setStartOn(Instant.now());
-                 lend.setDueOne(Instant.now().plus(15, ChronoUnit.DAYS));
-                 lendRepository.save(lend);
-             }
-         });
+    public List<String> lendBook (BookLendDto request) {
+
+        Optional<Member> memberForId = memberRepository.findById(request.getMemberId());
+        if (!memberForId.isPresent()) {
+            throw new EntityNotFoundException("Member not present in the database");
+        }
+
+        Member member = memberForId.get();
+        if (member.getMemberStatus() != MemberStatus.ACTIVE) {
+            throw new RuntimeException("User is not active to proceed a lending.");
+        }
+
+        List<String> booksApprovedToBurrow = new ArrayList<>();
+
+        request.getBooksIds().forEach(bookId -> {
+
+            Optional<Book> bookForId = bookRepository.findById(bookId);
+            if (!bookForId.isPresent()) {
+                throw new EntityNotFoundException("Cant find any book under given ID");
+            }
+
+            Optional<Lend> burrowedBook = lendRepository.findByBookAndStatus(bookForId.get(), LendStatus.BURROWED);
+            if (!burrowedBook.isPresent()) {
+                booksApprovedToBurrow.add(bookForId.get().getName());
+                Lend lend = new Lend();
+                lend.setMember(memberForId.get());
+                lend.setBook(bookForId.get());
+                lend.setStatus(LendStatus.BURROWED);
+                lend.setStartOn(Instant.now());
+                lend.setDueOne(Instant.now().plus(15, ChronoUnit.DAYS));
+                lendRepository.save(lend);
+            }
+
+        });
         return booksApprovedToBurrow;
     }
+
+    @Override
+    public Book updateBook(String bookId, BookCreationDto request) {
+        Optional<Author> author = authorRepository.findById(request.getAuthorId());
+        if (!author.isPresent()) {
+            throw new EntityNotFoundException("Author Not Found");
+        }
+        Optional<Book> optionalBook = bookRepository.findById(bookId);
+        if (!optionalBook.isPresent()) {
+            throw new EntityNotFoundException("Book Not Found");
+        }
+        Book book = optionalBook.get();
+        book.setIsbn(request.getIsbn());
+        book.setName(request.getName());
+        book.setAuthor(author.get());
+        return bookRepository.save(book);
+    }
+
+    @Override
+    public List<Member> readMembers() {
+        return memberRepository.findAll();
+    }
+
+
 }
